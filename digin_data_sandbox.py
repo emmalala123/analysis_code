@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Oct 15 12:35:25 2024
+
+@author: emmabarash
+"""
+
 """
 Generates plots in data directory for entire timeseries of 
 DIG_INs and AMP channels
@@ -25,7 +33,7 @@ from tqdm import tqdm
 #         dir_path += '/'
 # else:
 #     dir_path = easygui.diropenbox(msg = 'Please select data directory')
-dir_path = '/Users/emmabarash/Desktop/emma_behavioral_dat/test_20241014_12h29m'
+dir_path = '/Users/emmabarash/Desktop/emma_behavioral_dat/eb20_behavior_4_30_240430_113352'
 # Create plot dir
 plot_dir = os.path.join(dir_path, "channel_profile_plots")
 if not os.path.exists(plot_dir):
@@ -98,7 +106,7 @@ downsample = 100
 # 	plt.close(fig)
 	
 print("Now plotting digital input signals")
-#digin_files = digin_files[8:16]
+digin_files = digin_files[8:16]
 if file_type == ['one file per channel']:
 	fig,ax = plt.subplots(len(digin_files),
 	        sharex=True, sharey=True, figsize = (8,10))
@@ -109,7 +117,7 @@ if file_type == ['one file per channel']:
 	            .split('.')[0].split('-')[1:]))
 	plt.suptitle('DIGIN Data')
 	fig.savefig(os.path.join(plot_dir, 'digin_data'))
-	plt.close(fig)
+	#plt.close(fig)
 elif file_type == ['one file per signal type']:
 	d_inputs = np.fromfile(digin_files[0], dtype=np.dtype('uint16'))
 	d_inputs_str = d_inputs.astype('str')
@@ -132,7 +140,7 @@ elif file_type == ['one file per signal type']:
 	    ax_i.set_ylabel('Dig_in_' + str(dig_in[d_i]))
 	plt.suptitle('DIGIN Data')
 	fig.savefig(os.path.join(plot_dir, 'digin_data'))
-	plt.close(fig)
+	#plt.close(fig)
     
 # trying to replicate cumulative delivery graphs
 data0 = np.fromfile('/Users/emmabarash/Desktop/emma_behavioral_dat/eb18_behavior_3_2_240302_114243/board-DIGITAL-IN-00.dat', dtype = np.dtype('uint16'))
