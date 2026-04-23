@@ -323,6 +323,15 @@ for i, (anid, group) in enumerate(groups):
 for j in range(len(groups), len(axes)):
     fig.delaxes(axes[j])
 plt.show()
+
+#%% LATENCY
+latency_df = copy.groupby(['AnID','Sessions', 'TasteID', 'Category']).Latencies.mean().reset_index()
+
+sns.swarmplot(data=latency_df, x='Sessions', y='Latencies',  hue='TasteID', palette='viridis')
+sns.barplot(data=latency_df, x='Sessions', y='Latencies',  hue='Category', palette='gist_yarg')
+plt.title('Average Poke-to-Poke Latency (sec) per Taste Across Sessions')
+plt.show()
+
 #%% find palatability scores
 data = copy
 # Ensure 'Taste_Delivery' and 'group_cumsum' are numeric
@@ -332,6 +341,7 @@ data['group_cumsum'] = pd.to_numeric(data['group_cumsum'], errors='coerce')
 # get cumulative values for each taste per session
 all_cumsum_per_sesh = data.groupby(['AnID', 'Sessions', 'TasteID', 'Category']).group_cumsum.max().reset_index()
 
+plt.figure(figsize=(15, 8))
 ax = sns.boxplot(data=all_cumsum_per_sesh, x = 'Sessions', y='group_cumsum', hue='Category')
 ax1 = sns.swarmplot(data=all_cumsum_per_sesh, x = 'Sessions', y='group_cumsum', color='black')
 sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
@@ -346,7 +356,10 @@ ax1.set_title('Cumulative Deliveries')
 plt.show()
 
 # get zscores for the tastes / session
-all_cumsum_per_sesh['zscores'] = stats.zscore(all_cumsum_per_sesh['group_cumsum'])
+#all_cumsum_per_sesh['zscores'] = stats.zscore(all_cumsum_per_sesh['group_cumsum'])
+
+# zscore by rat ID
+all_cumsum_per_sesh['zscores'] = all_cumsum_per_sesh.groupby('AnID')['group_cumsum'].transform(lambda x: stats.zscore(x))
 
 #lineplot over sessions
 ax = sns.lineplot(data = all_cumsum_per_sesh, x='Sessions', y='zscores', hue='TasteID')
@@ -370,231 +383,287 @@ sns.catplot(data=all_cumsum_per_sesh, x='TasteID', y='zscores', hue='Category', 
             capsize=.15, aspect=1.5, errwidth=0.8)
 plt.show()
 
+#%% PLOTS IT ALL
+# 1. Initialize the FacetGrid with Boxplots
+g = sns.catplot(
+    data=all_cumsum_per_sesh, 
+    x='Sessions', 
+    y='group_cumsum', 
+    hue='TasteID', 
+    col='Category', 
+    col_order=['lowerNaCl', 'higherNaCl'], # <--- This fixes the side-by-side order
+    kind='box',           
+    sharey=True,          
+    aspect=1.2, 
+    palette='Set2',
+    showfliers=False 
+)
+
+# 2. Overlay the dots
+g.map_dataframe(
+    sns.stripplot, 
+    x='Sessions', 
+    y='group_cumsum', 
+    hue='TasteID', 
+    palette='Set2',
+    dodge=True,        
+    alpha=0.6, 
+    jitter=True, 
+    size=4,
+    edgecolor='black',
+    linewidth=0.5
+)
+
+plt.subplots_adjust(top=0.85)
+g.fig.suptitle('Taste Preferences over Sessions: Lower vs Higher Aversive Groups')
+
+plt.show()
+
 #%%% One-way ANOVAs
-hf_statistic, hp_value = stats.f_oneway(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True))
-lf_statistic, lp_value = stats.f_oneway(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True))
+# hf_statistic, hp_value = stats.f_oneway(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True))
+# lf_statistic, lp_value = stats.f_oneway(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True))
 
-print('high', hf_statistic, hp_value, '\n')
-print('low', lf_statistic, lp_value, '\n')
+# print('high', hf_statistic, hp_value, '\n')
+# print('low', lf_statistic, lp_value, '\n')
 
-higher_t_test_suc_vs_nacl_l = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'),'zscores'].reset_index(drop=True))
-higher_t_test_suc_vs_nacl_h = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'),'zscores'].reset_index(drop=True))
-higher_t_test_nacl_l_vs_nacl_h = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'),'zscores'].reset_index(drop=True))
-print('suc + low + higher', higher_t_test_suc_vs_nacl_l[1], ' \n'+'suc + high + higher', higher_t_test_nacl_l_vs_nacl_h[1], ' \n' + 'low + high + higher', higher_t_test_nacl_l_vs_nacl_h[1])
+# higher_t_test_suc_vs_nacl_l = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'),'zscores'].reset_index(drop=True))
+# higher_t_test_suc_vs_nacl_h = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'),'zscores'].reset_index(drop=True))
+# higher_t_test_nacl_l_vs_nacl_h = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'higherNaCl'),'zscores'].reset_index(drop=True))
+# print('suc + low + higher', higher_t_test_suc_vs_nacl_l[1], ' \n'+'suc + high + higher', higher_t_test_nacl_l_vs_nacl_h[1], ' \n' + 'low + high + higher', higher_t_test_nacl_l_vs_nacl_h[1])
 
 
-lower_t_test_suc_vs_nacl_l = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'),'zscores'].reset_index(drop=True))
-lower_t_test_suc_vs_nacl_h = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'),'zscores'].reset_index(drop=True))
-lower_t_test_nacl_l_vs_nacl_h = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'),'zscores'].reset_index(drop=True))
-print('\nsuc + low + lower', lower_t_test_suc_vs_nacl_l[1], ' \n'+'suc + high + lower', lower_t_test_nacl_l_vs_nacl_h[1], ' \n' + 'low + high + lower', lower_t_test_nacl_l_vs_nacl_h[1], '\n')
+# lower_t_test_suc_vs_nacl_l = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'),'zscores'].reset_index(drop=True))
+# lower_t_test_suc_vs_nacl_h = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'suc') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'),'zscores'].reset_index(drop=True))
+# lower_t_test_nacl_l_vs_nacl_h = ttest_ind(all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_l') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'), 'zscores'].reset_index(drop=True), all_cumsum_per_sesh.loc[(all_cumsum_per_sesh['TasteID'] == 'nacl_h') & (all_cumsum_per_sesh['Category'] == 'lowerNaCl'),'zscores'].reset_index(drop=True))
+# print('\nsuc + low + lower', lower_t_test_suc_vs_nacl_l[1], ' \n'+'suc + high + lower', lower_t_test_nacl_l_vs_nacl_h[1], ' \n' + 'low + high + lower', lower_t_test_nacl_l_vs_nacl_h[1], '\n')
 
-cat_order = ['lowerNaCl', 'higherNaCl']
-tastes_order = ['nacl_h', 'nacl_l', 'suc']
+#%% other ttest
+# cat_order = ['lowerNaCl', 'higherNaCl']
+# tastes_order = ['nacl_h', 'nacl_l', 'suc']
 
-test_pairs = [
-    # Comparisons within the 'lowerNaCl' group
-    ( ('lowerNaCl', 'nacl_l'), ('lowerNaCl', 'nacl_h') ),
-    ( ('lowerNaCl', 'nacl_l'), ('lowerNaCl', 'suc')    ),
-    ( ('lowerNaCl', 'nacl_h'), ('lowerNaCl', 'suc')    ),
+# # Order: (h vs l), (l vs suc), (h vs suc)
+# test_pairs = [
+#     # lowerNaCl
+#     ( ('lowerNaCl', 'nacl_h'), ('lowerNaCl', 'nacl_l') ),
+#     ( ('lowerNaCl', 'nacl_l'), ('lowerNaCl', 'suc')    ),
+#     ( ('lowerNaCl', 'nacl_h'), ('lowerNaCl', 'suc')    ),
     
-    # Comparisons within the 'higherNaCl' group
-    ( ('higherNaCl', 'nacl_l'), ('higherNaCl', 'nacl_h') ),
-    ( ('higherNaCl', 'nacl_l'), ('higherNaCl', 'suc')    ),
-    ( ('higherNaCl', 'nacl_h'), ('higherNaCl', 'suc')    )
-]
+#     # higherNaCl
+#     ( ('higherNaCl', 'nacl_h'), ('higherNaCl', 'nacl_l') ),
+#     ( ('higherNaCl', 'nacl_l'), ('higherNaCl', 'suc')    ),
+#     ( ('higherNaCl', 'nacl_h'), ('higherNaCl', 'suc')    )
+# ]
 
-from statannotations.Annotator import Annotator
-# 1. Create the plot
-ax = sns.boxplot(
-    data=all_cumsum_per_sesh, 
-    x='Category', 
-    y='zscores', 
-    order=cat_order, 
-    hue='TasteID', 
-    hue_order=tastes_order
-)
+# from statannotations.Annotator import Annotator
+# # 1. Create the plot
+# ax = sns.boxplot(
+#     data=all_cumsum_per_sesh, 
+#     x='Category', 
+#     y='zscores', 
+#     order=cat_order, 
+#     hue='TasteID', 
+#     hue_order=tastes_order
+# )
 
-# 2. Initialize Annotator with hue specifically defined
-annotator = Annotator(
-    ax, 
-    pairs=test_pairs, 
-    data=all_cumsum_per_sesh, 
-    x='Category', 
-    y='zscores', 
-    hue='TasteID',      
-    hue_order=tastes_order # <--- Keep this consistent with the plot
-)
+# # 2. Initialize Annotator with hue specifically defined
+# annotator = Annotator(
+#     ax, 
+#     pairs=test_pairs, 
+#     data=all_cumsum_per_sesh, 
+#     x='Category', 
+#     y='zscores', 
+#     order=cat_order,
+#     hue='TasteID',      
+#     hue_order=tastes_order # <--- Keep this consistent with the plot
+# )
 
-# 3. Configure and apply
-annotator.configure(
-    test="t-test_ind", 
-    text_format="star", 
-    loc="inside"
-)
+# # 3. Configure and apply
+# annotator.configure(
+#     test="t-test_ind", 
+#     text_format="star", 
+#     loc="inside"
+# )
 
-annotator.apply_and_annotate()
+# annotator.apply_and_annotate()
 
-# 4. Clean up legend and show
-sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-ax.set_title('Zscore of Taste Deliveries per Aversive Group')
-plt.show()
+# # 4. Clean up legend and show
+# sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+# ax.set_title('Zscore of Taste Deliveries per Aversive Group')
+# plt.show()
 
-#%% Across categories
-cross_cat_pairs = [
-    (('lowerNaCl', 'nacl_h'), ('higherNaCl', 'nacl_h')),
-    (('lowerNaCl', 'nacl_l'), ('higherNaCl', 'nacl_l')),
-    (('lowerNaCl', 'suc'),    ('higherNaCl', 'suc'))
-]
+# #%% Across categories
+# cross_cat_pairs = [
+#     (('lowerNaCl', 'nacl_h'), ('higherNaCl', 'nacl_h')),
+#     (('lowerNaCl', 'nacl_l'), ('higherNaCl', 'nacl_l')),
+#     (('lowerNaCl', 'suc'),    ('higherNaCl', 'suc'))
+# ]
 
-cat_order = ['lowerNaCl', 'higherNaCl']
-tastes_order = ['nacl_h', 'nacl_l', 'suc']
+# cat_order = ['lowerNaCl', 'higherNaCl']
+# tastes_order = ['nacl_h', 'nacl_l', 'suc']
 
-# 2. Create the plot
-plt.figure(figsize=(10, 6))
-ax = sns.boxplot(
-    data=all_cumsum_per_sesh, 
-    x='Category', 
-    y='zscores', 
-    order=cat_order, 
-    hue='TasteID', 
-    hue_order=tastes_order
-)
+# # 2. Create the plot
+# plt.figure(figsize=(10, 6))
+# ax = sns.boxplot(
+#     data=all_cumsum_per_sesh, 
+#     x='Category', 
+#     y='zscores', 
+#     order=cat_order, 
+#     hue='TasteID', 
+#     hue_order=tastes_order
+# )
 
-# 3. Initialize Annotator
-# We use the new cross_cat_pairs here
-annotator = Annotator(
-    ax, 
-    pairs=cross_cat_pairs, 
-    data=all_cumsum_per_sesh, 
-    x='Category', 
-    y='zscores', 
-    hue='TasteID',       
-    hue_order=tastes_order
-)
+# # 3. Initialize Annotator
+# # We use the new cross_cat_pairs here
+# annotator = Annotator(
+#     ax, 
+#     pairs=cross_cat_pairs, 
+#     data=all_cumsum_per_sesh, 
+#     x='Category', 
+#     y='zscores', 
+#     hue='TasteID',       
+#     hue_order=tastes_order
+# )
 
-# 4. Configure and apply
-annotator.configure(
-    test="t-test_ind", 
-    text_format="star", 
-    comparisons_correction="bonferroni",
-    loc="inside"
-)
+# # 4. Configure and apply
+# annotator.configure(
+#     test="t-test_ind", 
+#     text_format="star", 
+#     comparisons_correction="bonferroni",
+#     loc="inside"
+# )
 
-annotator.apply_and_annotate()
+# annotator.apply_and_annotate()
 
-# 5. Styling
-sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-ax.set_title('Cross-Category Comparison of the Same Tastes')
-plt.show()
+# # 5. Styling
+# sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+# ax.set_title('Cross-Category Comparison of the Same Tastes')
+# plt.show()
 
-#%% Two-way ANOVA
-model = ols('zscores ~ C(TasteID) + C(Category) + C(TasteID):C(Category)', data=all_cumsum_per_sesh).fit()
-sm.stats.anova_lm(model, typ=2)
+# #%% Two-way ANOVA
+# import statsmodels.api as sm
+# # Define the model with the interaction term (*)
+# model = ols('zscores ~ C(TasteID) * C(Category)', data=all_cumsum_per_sesh).fit()
+# anova_results = sm.stats.anova_lm(model, typ=2)
+
+# print('\n', anova_results)
+# plt.figure(figsize=(8, 6))
+# # standard "Interaction Plot"
+# sns.pointplot(
+#     data=all_cumsum_per_sesh, 
+#     x='TasteID', 
+#     y='zscores', 
+#     hue='Category', 
+#     markers=["o", "s"], 
+#     linestyles=["-", "--"],
+#     capsize=.1
+# )
+
+# plt.title("Interaction Plot: TasteID x Category")
+# plt.show()
 
 
+# #%%
+# # get rates and visualize palatable (two tastes combined) and unpalatable.
+# # Create the 'Taste_Type' column based on 'Concentration'
+# data['Taste_Type'] = data['Concentration'].apply(lambda x: 'Palatable' if x in ['nacl_0.1M', 'suc_0.3M'] else 'Unpalatable')
 
-#%%
-# get rates and visualize palatable (two tastes combined) and unpalatable.
-# Create the 'Taste_Type' column based on 'Concentration'
-data['Taste_Type'] = data['Concentration'].apply(lambda x: 'Palatable' if x in ['nacl_0.1M', 'suc_0.3M'] else 'Unpalatable')
+# # Define the window size for the rolling average
+# window_size = 10
 
-# Define the window size for the rolling average
-window_size = 10
+# # Calculate the correct delivery rate for each trial within a session
+# data['Corrected_Delivery_Rate'] = data['group_cumsum'] / data['Time']
 
-# Calculate the correct delivery rate for each trial within a session
-data['Corrected_Delivery_Rate'] = data['group_cumsum'] / data['Time']
+# # Group the data by session time and taste type to calculate the sum of cumulative deliveries
+# cumulative_deliveries_corrected = data.groupby(['Time', 'Taste_Type'])['group_cumsum'].sum().reset_index()
 
-# Group the data by session time and taste type to calculate the sum of cumulative deliveries
-cumulative_deliveries_corrected = data.groupby(['Time', 'Taste_Type'])['group_cumsum'].sum().reset_index()
+# # Separate the data into palatable and unpalatable
+# palatable_cumulative_corrected = cumulative_deliveries_corrected[cumulative_deliveries_corrected['Taste_Type'] == 'Palatable']
+# unpalatable_cumulative_corrected = cumulative_deliveries_corrected[cumulative_deliveries_corrected['Taste_Type'] == 'Unpalatable']
 
-# Separate the data into palatable and unpalatable
-palatable_cumulative_corrected = cumulative_deliveries_corrected[cumulative_deliveries_corrected['Taste_Type'] == 'Palatable']
-unpalatable_cumulative_corrected = cumulative_deliveries_corrected[cumulative_deliveries_corrected['Taste_Type'] == 'Unpalatable']
+# # Define the time intervals for analysis (e.g., every 100 seconds)
+# time_intervals = range(0, 3601, 100)
 
-# Define the time intervals for analysis (e.g., every 100 seconds)
-time_intervals = range(0, 3601, 100)
+# # Initialize lists to store results
+# time_points = []
+# rate_differences = []
+# rate_p_values = []
 
-# Initialize lists to store results
-time_points = []
-rate_differences = []
-rate_p_values = []
-
-# Calculate delivery rates for each time interval
-for t in time_intervals:
-    # Filter data for the current time interval
-    interval_data = data[(data['Time'] >= t) & (data['Time'] < t + 100)]
+# # Calculate delivery rates for each time interval
+# for t in time_intervals:
+#     # Filter data for the current time interval
+#     interval_data = data[(data['Time'] >= t) & (data['Time'] < t + 100)]
     
-    # Calculate average delivery rates
-    palatable_rates = interval_data[interval_data['Taste_Type'] == 'Palatable']['Corrected_Delivery_Rate']
-    unpalatable_rates = interval_data[interval_data['Taste_Type'] == 'Unpalatable']['Corrected_Delivery_Rate']
+#     # Calculate average delivery rates
+#     palatable_rates = interval_data[interval_data['Taste_Type'] == 'Palatable']['Corrected_Delivery_Rate']
+#     unpalatable_rates = interval_data[interval_data['Taste_Type'] == 'Unpalatable']['Corrected_Delivery_Rate']
     
-    # Ensure numeric and drop NaNs
-    palatable_rates = pd.to_numeric(palatable_rates, errors='coerce').dropna()
-    unpalatable_rates = pd.to_numeric(unpalatable_rates, errors='coerce').dropna()
+#     # Ensure numeric and drop NaNs
+#     palatable_rates = pd.to_numeric(palatable_rates, errors='coerce').dropna()
+#     unpalatable_rates = pd.to_numeric(unpalatable_rates, errors='coerce').dropna()
 
-    # Calculate difference
-    rate_diff = palatable_rates.mean() - unpalatable_rates.mean()
+#     # Calculate difference
+#     rate_diff = palatable_rates.mean() - unpalatable_rates.mean()
     
-    # Mann-Whitney U test
-    if len(palatable_rates) > 0 and len(unpalatable_rates) > 0:
-        t_stat, p_value = mannwhitneyu(palatable_rates, unpalatable_rates, alternative='two-sided')
-    else:
-        t_stat, p_value = (None, None)
+#     # Mann-Whitney U test
+#     if len(palatable_rates) > 0 and len(unpalatable_rates) > 0:
+#         t_stat, p_value = mannwhitneyu(palatable_rates, unpalatable_rates, alternative='two-sided')
+#     else:
+#         t_stat, p_value = (None, None)
     
-    # Store results
-    time_points.append(t)
-    rate_differences.append(rate_diff)
-    rate_p_values.append(p_value)
+#     # Store results
+#     time_points.append(t)
+#     rate_differences.append(rate_diff)
+#     rate_p_values.append(p_value)
 
 
-# Create a DataFrame to store and display results
-rate_discriminability_df = pd.DataFrame({
-    'Time': time_points,
-    'Rate_Difference': rate_differences,
-    'p-value': rate_p_values
-})
+# # Create a DataFrame to store and display results
+# rate_discriminability_df = pd.DataFrame({
+#     'Time': time_points,
+#     'Rate_Difference': rate_differences,
+#     'p-value': rate_p_values
+# })
 
-# Display the DataFrame
-rate_discriminability_df.head()
+# # Display the DataFrame
+# rate_discriminability_df.head()
 
-# Perform a two-way ANOVA to test for interaction between time and taste type
-# Prepare the data for ANOVA
-anova_data = data.copy()
+# # Perform a two-way ANOVA to test for interaction between time and taste type
+# # Prepare the data for ANOVA
+# anova_data = data.copy()
 
-# Convert to numeric
-anova_data['Corrected_Delivery_Rate'] = pd.to_numeric(anova_data['Corrected_Delivery_Rate'], errors='coerce')
+# # Convert to numeric
+# anova_data['Corrected_Delivery_Rate'] = pd.to_numeric(anova_data['Corrected_Delivery_Rate'], errors='coerce')
 
-# Bin the time into intervals
-anova_data['Time_Bin'] = pd.cut(anova_data['Time'], bins=range(0, 3700, 100), labels=range(0, 3600, 100))
+# # Bin the time into intervals
+# anova_data['Time_Bin'] = pd.cut(anova_data['Time'], bins=range(0, 3700, 100), labels=range(0, 3600, 100))
 
-# Drop rows with missing values in either variable
-anova_data = anova_data.dropna(subset=['Time_Bin', 'Corrected_Delivery_Rate'])
+# # Drop rows with missing values in either variable
+# anova_data = anova_data.dropna(subset=['Time_Bin', 'Corrected_Delivery_Rate'])
 
-# Run the ANOVA model
-model = ols('Corrected_Delivery_Rate ~ C(Time_Bin) * C(Taste_Type)', data=anova_data).fit()
+# # Run the ANOVA model
+# model = ols('Corrected_Delivery_Rate ~ C(Time_Bin) * C(Taste_Type)', data=anova_data).fit()
 
-# Create the interaction plot
-plt.figure(figsize=(14, 7))
+# # Create the interaction plot
+# plt.figure(figsize=(14, 7))
 
-# Calculate mean delivery rates for each combination of time bin and taste type
-interaction_data = anova_data.groupby(['Time_Bin', 'Taste_Type'])['Corrected_Delivery_Rate'].mean().reset_index()
+# # Calculate mean delivery rates for each combination of time bin and taste type
+# interaction_data = anova_data.groupby(['Time_Bin', 'Taste_Type'])['Corrected_Delivery_Rate'].mean().reset_index()
 
-# Plot interaction plot
-sns.lineplot(data=interaction_data, x='Time_Bin', y='Corrected_Delivery_Rate', hue='Taste_Type', marker='o')
+# # Plot interaction plot
+# sns.lineplot(data=interaction_data, x='Time_Bin', y='Corrected_Delivery_Rate', hue='Taste_Type', marker='o')
 
-plt.figure(figsize=(14, 7))
+# plt.figure(figsize=(14, 7))
 
-# Plot interaction plot with significant time bins highlighted
-sns.lineplot(data=interaction_data, x='Time_Bin', y='Corrected_Delivery_Rate', hue='Taste_Type', marker='o')
+# # Plot interaction plot with significant time bins highlighted
+# sns.lineplot(data=interaction_data, x='Time_Bin', y='Corrected_Delivery_Rate', hue='Taste_Type', marker='o')
 
-# Highlight significant time bins
-significant_bins = rate_discriminability_df[rate_discriminability_df['p-value'] < 0.05]
-plt.scatter(significant_bins['Time'], [interaction_data[(interaction_data['Time_Bin'] == bin) & (interaction_data['Taste_Type'] == 'Palatable')]['Corrected_Delivery_Rate'].mean() for bin in significant_bins['Time']], color='blue', s=100, label='Significant Palatable')
-plt.scatter(significant_bins['Time'], [interaction_data[(interaction_data['Time_Bin'] == bin) & (interaction_data['Taste_Type'] == 'Unpalatable')]['Corrected_Delivery_Rate'].mean() for bin in significant_bins['Time']], color='red', s=100, label='Significant Unpalatable')
+# # Highlight significant time bins
+# significant_bins = rate_discriminability_df[rate_discriminability_df['p-value'] < 0.05]
+# plt.scatter(significant_bins['Time'], [interaction_data[(interaction_data['Time_Bin'] == bin) & (interaction_data['Taste_Type'] == 'Palatable')]['Corrected_Delivery_Rate'].mean() for bin in significant_bins['Time']], color='blue', s=100, label='Significant Palatable')
+# plt.scatter(significant_bins['Time'], [interaction_data[(interaction_data['Time_Bin'] == bin) & (interaction_data['Taste_Type'] == 'Unpalatable')]['Corrected_Delivery_Rate'].mean() for bin in significant_bins['Time']], color='red', s=100, label='Significant Unpalatable')
 
-plt.xlabel('Time Bin (seconds)')
-plt.ylabel('Average Delivery Rate')
-plt.title('Interaction Plot: Delivery Rates Over Time by Taste Type with Significant Time Bins Highlighted')
-plt.legend(title='Taste Type')
-plt.grid(True)
-plt.show()
+# plt.xlabel('Time Bin (seconds)')
+# plt.ylabel('Average Delivery Rate')
+# plt.title('Interaction Plot: Delivery Rates Over Time by Taste Type with Significant Time Bins Highlighted')
+# plt.legend(title='Taste Type')
+# plt.grid(True)
+# plt.show()
