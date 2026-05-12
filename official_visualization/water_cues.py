@@ -18,7 +18,7 @@ from scipy import stats
 import re
 
 if os.sep == '/':
-    directory = '/Users/emmabarash/lab/data/water_cues/usha_scifest_data26_water_cues/ub5'
+    directory = '/Users/emmabarash/lab/data/water_cues/usha_scifest_data26_water_cues/ub6'
 else:
     directory = r'C:\Users\Emma_PC\Documents\data\paradigm_23'
 

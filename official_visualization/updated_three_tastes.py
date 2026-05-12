@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Oct 17 12:10:01 2024
+Created on Mon May 11 11:07:09 2026
 
 @author: emmabarash
 """
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,13 +17,14 @@ from scipy import stats
 import re
 
 if os.sep == '/':
-    directory = '/Users/emmabarash/lab/data/one_port/usha_scifest_data26_one_port/ub5'
+    directory = '/Users/emmabarash/Lab/data/three_tastes/ub5'
 else:
     directory = r'C:\Users\Emma_PC\Documents\data\paradigm_23'
 
+# directory = '/Users/emmabarash/Lab/blacklist'
 
+#filelist = glob.glob(os.path.join(directory,'**','*.csv'))
 filelist = glob.glob(os.path.join(directory,'*.csv'))
-# filelist = glob.glob(os.path.join(directory,'*.csv'))
 
 finaldf = pd.DataFrame(columns = ['Time', 'Poke1', 'Poke2', 'Line1', 'Line2', 'Line3', 'Line4', 'Cue1',
        'Cue2', 'Cue3', 'Cue4', 'TasteID', 'AnID', 'Date', 'Taste_Delivery',
@@ -34,18 +34,31 @@ filelist.sort()
 for f in range(len(filelist)):
     df = pd.read_csv(filelist[f])
     group = df
-    col = ['Line1', 'Line2']
+    col = ['Line1', 'Line2', 'Line3']
     
     def parse_edges(group,col):
         delivery_idx = []
         group['TasteID'] = None
-        group['AnID'] = filelist[f][-22:-18]
-        group['Date'] = filelist[f][-17:-11]
+        if 'ub' in filelist[f]:
+            start = filelist[f].find('ub') # get index of 'ub'
+            second = filelist[f].find('ub', start + 1) # get second occurance of 'ub'
+            second_start = filelist[f][second:]
+            AnID = second_start[:second_start.find('_')]
+        group['AnID'] = AnID
+        
+        if '202' in filelist[f]:
+            start = filelist[f].find('202')
+            second = filelist[f][start:]
+            Date = second[:filelist[f].find('_')]
+        group['Date'] = Date # for new data, -27 and -21 give date
+        
         for j in col:
             col = j
             if col == 'Line1': 
                 taste = 'suc'
             if col == 'Line2':
+                taste = 'nacl_l'
+            if col == 'Line3':
                 taste = 'qhcl'
             
             cols = ['Time']+[col]
@@ -65,17 +78,20 @@ for f in range(len(filelist)):
             test['dt'] = test.TimeOff-test.TimeOn
             
             for i, row in test.iterrows():
-                start = int(np.where(df['Time'] == test['TimeOn'][i])[0])
-                stop = int(np.where(df['Time'] == test['TimeOff'][i])[0])
-                
-                group.loc[group.index[range(start,stop)],'TasteID'] = taste
-                delivery_idx.append(start)
-        
+                if len(np.where(df['Time'] == test['TimeOn'][i])[0]) == 1 and len(np.where(df['Time'] == test['TimeOff'][i])[0]) == 1:
+                    # print(len(np.where(df['Time'] == test['TimeOn'][i])[0]))
+                    start = int(np.where(df['Time'] == test['TimeOn'][i])[0])
+                    stop = int(np.where(df['Time'] == test['TimeOff'][i])[0])
+                    
+                    group.loc[group.index[range(start,stop)],'TasteID'] = taste
+                    delivery_idx.append(start)
+            
         return group, delivery_idx
     
     group['Line1'] = group['Line1'].astype(bool)
     group['Line2'] = group['Line2'].astype(bool)
-    new_df, delivery_idx = parse_edges(df, ['Line1', 'Line2'])
+    group['Line3'] = group['Line3'].astype(bool)
+    new_df, delivery_idx = parse_edges(df, ['Line1', 'Line2', 'Line3'])
     
     def create_edge_frame(copy):
         
@@ -197,7 +213,8 @@ def add_days_elapsed_again(finaldf):
     
     tst= new_df[['AnID','Date','TasteID', 'Concentration','ones']].drop_duplicates()
     tst = pd.pivot(tst, index = ['AnID','Date'], columns = 'TasteID', values='Concentration')
-    tst['tasteset'] = tst['suc'] +'_&_'+ tst['qhcl']
+    # tst['tasteset'] = tst['suc'] +'_&_'+ tst['qhcl']
+    tst['tasteset'] = tst['suc']
     tst = tst.reset_index()
     
     tst['ones'] = 1
@@ -233,15 +250,22 @@ p1 = sns.scatterplot(data = csum, x = "Sessions", y = "Delivery_Time", hue = "Ta
 p2 = sns.lineplot(data = means, x = "Sessions", y = "Delivery_Time", hue = "TasteID")
 # Put the legend out of the figure
 plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-plt.show()
-# get the cumulative deliveries per session
-# Convert the series to a DataFrame
-df_deliveries = pd.DataFrame(num_less_than_one, columns=['ones']).reset_index()
 
-# Rename the columns
-df_deliveries.columns = ['Date', 'AnID', 'Deliveries']
-df_deliveries = new_df.merge(df_deliveries)
+new_df.loc[(new_df['TasteID'] == 'nacl_l', 'Concentration')] = 'nacl_0.1M'
+new_df.loc[new_df['TasteID'] == 'suc', 'Concentration'] = 'suc_0.3M'
+new_df.loc[new_df['TasteID'] == 'qhcl', 'Concentration'] = 'qhcl_1mM'
 
-# create the plot
-sns.barplot(data=df_deliveries, x="Sessions", y="Deliveries", hue="AnID").set(title='Total deliveries across sessions')
-plt.show()
+# take out too low latencies
+new_df = new_df.loc[new_df['Latencies'] > 0.2]
+
+
+new_df3 = add_days_elapsed_again(new_df)
+
+copy = new_df
+
+copy['group_cumsum'] = copy.groupby(['TasteID', 'AnID', 'Date'])['ones'].cumsum()
+for name, group in copy.groupby(['Date']):
+   # sf = '/Users/emmabarash/lab/auto_save_days/' + name +'_cumplot.svg' 
+    sns.relplot(data = group, x='Time', y='group_cumsum', kind = 'line', hue='TasteID', row='AnID', hue_order=['suc', 'nacl_l', 'qhcl'])
+    plt.title(group['Date'])
+    #plt.savefig(sf)

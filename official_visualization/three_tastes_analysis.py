@@ -18,14 +18,14 @@ from scipy import stats
 import re
 
 if os.sep == '/':
-    directory = '/Users/emmabarash/Lab/data/three_tastes'
+    directory = '/Users/emmabarash/Lab/data/three_tastes/ub5'
 else:
     directory = r'C:\Users\Emma_PC\Documents\data\paradigm_23'
 
 # directory = '/Users/emmabarash/Lab/blacklist'
 
-filelist = glob.glob(os.path.join(directory,'**','*.csv'))
-# filelist = glob.glob(os.path.join(directory,'*.csv'))
+#filelist = glob.glob(os.path.join(directory,'**','*.csv'))
+filelist = glob.glob(os.path.join(directory,'*.csv'))
 
 finaldf = pd.DataFrame(columns = ['Time', 'Poke1', 'Poke2', 'Line1', 'Line2', 'Line3', 'Line4', 'Cue1',
        'Cue2', 'Cue3', 'Cue4', 'TasteID', 'AnID', 'Date', 'Taste_Delivery',
