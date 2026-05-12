@@ -5,6 +5,9 @@ Created on Mon May  4 12:15:16 2026
 
 @author: emmabarash
 """
+#%%###########      
+###############     IMPORTS & DIRECTORY
+#################
 
 import pandas as pd
 import numpy as np
@@ -27,6 +30,9 @@ else:
 #filelist = glob.glob(os.path.join(directory,'**','*.csv'))
 filelist = glob.glob(os.path.join(directory,'*.csv'))
 
+#%%###########      
+###############     CREATE DATAFRAME
+#################
 finaldf = pd.DataFrame(columns = ['Time', 'Poke1', 'Poke2', 'Line1', 'Line2', 'Line3', 'Line4', 'Cue1',
        'Cue2', 'Cue3', 'Cue4', 'TasteID', 'AnID', 'Date', 'Taste_Delivery',
        'Delivery_Time', 'Latencies'])
@@ -240,6 +246,9 @@ p1 = sns.scatterplot(data = csum, x = "Sessions", y = "Delivery_Time", hue = "Ta
 p2 = sns.lineplot(data = means, x = "Sessions", y = "Delivery_Time", hue = "TasteID")
 # Put the legend out of the figure
 plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+#%%###########      
+###############     GET LINE PLOTS
+#################
 
 new_df.loc[(new_df['TasteID'] == 'water', 'Concentration')] = 'water'
 
@@ -256,3 +265,30 @@ for name, group in copy.groupby(['Date']):
     #sf = '/Users/emmabarash/lab/auto_save_days/' + name +'_cumplot.svg' 
     sns.relplot(data = group, x='Time', y='group_cumsum', kind = 'line', hue='TasteID', row='AnID')
     #plt.savefig(sf)
+    
+#%%###########      
+###############     GET LATENCY PLOTS
+#################
+
+sns.barplot(
+    data = new_df3,
+    x = 'Sessions',
+    y = 'Latencies',
+    hue= 'TasteID',\
+    hue_order=['suc', 'nacl_l', 'qhcl']
+    )
+sns.swarmplot(
+    data = new_df3,
+    x = 'Sessions',
+    y = 'Latencies',
+    hue= 'TasteID',
+    dodge = True,
+    edgecolor="black",
+    linewidth=1,
+    hue_order=['suc', 'nacl_l', 'qhcl']
+    )
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0)
+plt.title('Latencies to acquire tastes per session')
+
+
+
